@@ -49,6 +49,20 @@ declare const YTMD_UPDATE_FEED_REPOSITORY: string;
 const assetFolder = path.join(process.env.NODE_ENV === "development" ? path.join(app.getAppPath(), "src/assets") : process.resourcesPath);
 const isDarwin = process.platform === "darwin";
 
+const isUnix = process.platform !== "win32" && process.platform !== "darwin";
+
+const isWaylandNative = isUnix && (process.env["XDG_SESSION_TYPE"] === "wayland" || process.env["WAYLAND_DISPLAY"] !== undefined);
+const applyFlags = (name: string, value?: string) => {
+  if (value !== undefined && app.commandLine.getSwitchValue(name) !== "")
+    switch (name) {
+      case "enable-features":
+      case "enable-blink-features":
+        value = app.commandLine.getSwitchValue(name) + "," + value;
+    }
+  app.commandLine.appendSwitch(name, value);
+  log.info("[OPTIMIZE] Applying flag: %s...", "--" + name + (value !== undefined ? "=" + value : ""));
+};
+
 let applicationExited = false;
 let applicationQuitting = false;
 let appUpdateAvailable = false;
@@ -126,6 +140,14 @@ if (require("electron-squirrel-startup")) {
 }
 
 log.info("Application launched");
+
+const optimize = () => {
+  for (const flag of getRecommendedGPUFlags()) applyFlags(flag[0], flag[1]);
+
+  for (const flag of getRecommendedOSFlags()) applyFlags(flag[0], flag[1]);
+};
+
+optimize();
 
 // Enforce sandbox on all renderers
 app.enableSandbox();
@@ -290,6 +312,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
 function getIconPath(icon: string) {
   return path.join(assetFolder, `${process.env.NODE_ENV === "development" ? "icons/" : ""}${icon}`);
 }
+
 function getControlsIconPath(icon: string) {
   return getIconPath(`${process.env.NODE_ENV === "development" ? "controls/" : ""}${icon}`);
 }
@@ -939,11 +962,12 @@ const createOrShowSettingsWindow = (): void => {
 function urlIsGoogleAccountsDomain(url: URL): boolean {
   // https://www.google.com/supported_domains
   // prettier-ignore
-  const supportedDomains = [".google.com",".google.ad",".google.ae",".google.com.af",".google.com.ag",".google.al",".google.am",".google.co.ao",".google.com.ar",".google.as",".google.at",".google.com.au",".google.az",".google.ba",".google.com.bd",".google.be",".google.bf",".google.bg",".google.com.bh",".google.bi",".google.bj",".google.com.bn",".google.com.bo",".google.com.br",".google.bs",".google.bt",".google.co.bw",".google.by",".google.com.bz",".google.ca",".google.cd",".google.cf",".google.cg",".google.ch",".google.ci",".google.co.ck",".google.cl",".google.cm",".google.cn",".google.com.co",".google.co.cr",".google.com.cu",".google.cv",".google.com.cy",".google.cz",".google.de",".google.dj",".google.dk",".google.dm",".google.com.do",".google.dz",".google.com.ec",".google.ee",".google.com.eg",".google.es",".google.com.et",".google.fi",".google.com.fj",".google.fm",".google.fr",".google.ga",".google.ge",".google.gg",".google.com.gh",".google.com.gi",".google.gl",".google.gm",".google.gr",".google.com.gt",".google.gy",".google.com.hk",".google.hn",".google.hr",".google.ht",".google.hu",".google.co.id",".google.ie",".google.co.il",".google.im",".google.co.in",".google.iq",".google.is",".google.it",".google.je",".google.com.jm",".google.jo",".google.co.jp",".google.co.ke",".google.com.kh",".google.ki",".google.kg",".google.co.kr",".google.com.kw",".google.kz",".google.la",".google.com.lb",".google.li",".google.lk",".google.co.ls",".google.lt",".google.lu",".google.lv",".google.com.ly",".google.co.ma",".google.md",".google.me",".google.mg",".google.mk",".google.ml",".google.com.mm",".google.mn",".google.com.mt",".google.mu",".google.mv",".google.mw",".google.com.mx",".google.com.my",".google.co.mz",".google.com.na",".google.com.ng",".google.com.ni",".google.ne",".google.nl",".google.no",".google.com.np",".google.nr",".google.nu",".google.co.nz",".google.com.om",".google.com.pa",".google.com.pe",".google.com.pg",".google.com.ph",".google.com.pk",".google.pl",".google.pn",".google.com.pr",".google.ps",".google.pt",".google.com.py",".google.com.qa",".google.ro",".google.ru",".google.rw",".google.com.sa",".google.com.sb",".google.sc",".google.se",".google.com.sg",".google.sh",".google.si",".google.sk",".google.com.sl",".google.sn",".google.so",".google.sm",".google.sr",".google.st",".google.com.sv",".google.td",".google.tg",".google.co.th",".google.com.tj",".google.tl",".google.tm",".google.tn",".google.to",".google.com.tr",".google.tt",".google.com.tw",".google.co.tz",".google.com.ua",".google.co.ug",".google.co.uk",".google.com.uy",".google.co.uz",".google.com.vc",".google.co.ve",".google.co.vi",".google.com.vn",".google.vu",".google.ws",".google.rs",".google.co.za",".google.co.zm",".google.co.zw",".google.cat"];
+  const supportedDomains = [".google.com", ".google.ad", ".google.ae", ".google.com.af", ".google.com.ag", ".google.al", ".google.am", ".google.co.ao", ".google.com.ar", ".google.as", ".google.at", ".google.com.au", ".google.az", ".google.ba", ".google.com.bd", ".google.be", ".google.bf", ".google.bg", ".google.com.bh", ".google.bi", ".google.bj", ".google.com.bn", ".google.com.bo", ".google.com.br", ".google.bs", ".google.bt", ".google.co.bw", ".google.by", ".google.com.bz", ".google.ca", ".google.cd", ".google.cf", ".google.cg", ".google.ch", ".google.ci", ".google.co.ck", ".google.cl", ".google.cm", ".google.cn", ".google.com.co", ".google.co.cr", ".google.com.cu", ".google.cv", ".google.com.cy", ".google.cz", ".google.de", ".google.dj", ".google.dk", ".google.dm", ".google.com.do", ".google.dz", ".google.com.ec", ".google.ee", ".google.com.eg", ".google.es", ".google.com.et", ".google.fi", ".google.com.fj", ".google.fm", ".google.fr", ".google.ga", ".google.ge", ".google.gg", ".google.com.gh", ".google.com.gi", ".google.gl", ".google.gm", ".google.gr", ".google.com.gt", ".google.gy", ".google.com.hk", ".google.hn", ".google.hr", ".google.ht", ".google.hu", ".google.co.id", ".google.ie", ".google.co.il", ".google.im", ".google.co.in", ".google.iq", ".google.is", ".google.it", ".google.je", ".google.com.jm", ".google.jo", ".google.co.jp", ".google.co.ke", ".google.com.kh", ".google.ki", ".google.kg", ".google.co.kr", ".google.com.kw", ".google.kz", ".google.la", ".google.com.lb", ".google.li", ".google.lk", ".google.co.ls", ".google.lt", ".google.lu", ".google.lv", ".google.com.ly", ".google.co.ma", ".google.md", ".google.me", ".google.mg", ".google.mk", ".google.ml", ".google.com.mm", ".google.mn", ".google.com.mt", ".google.mu", ".google.mv", ".google.mw", ".google.com.mx", ".google.com.my", ".google.co.mz", ".google.com.na", ".google.com.ng", ".google.com.ni", ".google.ne", ".google.nl", ".google.no", ".google.com.np", ".google.nr", ".google.nu", ".google.co.nz", ".google.com.om", ".google.com.pa", ".google.com.pe", ".google.com.pg", ".google.com.ph", ".google.com.pk", ".google.pl", ".google.pn", ".google.com.pr", ".google.ps", ".google.pt", ".google.com.py", ".google.com.qa", ".google.ro", ".google.ru", ".google.rw", ".google.com.sa", ".google.com.sb", ".google.sc", ".google.se", ".google.com.sg", ".google.sh", ".google.si", ".google.sk", ".google.com.sl", ".google.sn", ".google.so", ".google.sm", ".google.sr", ".google.st", ".google.com.sv", ".google.td", ".google.tg", ".google.co.th", ".google.com.tj", ".google.tl", ".google.tm", ".google.tn", ".google.to", ".google.com.tr", ".google.tt", ".google.com.tw", ".google.co.tz", ".google.com.ua", ".google.co.ug", ".google.co.uk", ".google.com.uy", ".google.co.uz", ".google.com.vc", ".google.co.ve", ".google.co.vi", ".google.com.vn", ".google.vu", ".google.ws", ".google.rs", ".google.co.za", ".google.co.zm", ".google.co.zw", ".google.cat"];
   const domain = url.hostname.split("accounts")[1];
   if (supportedDomains.includes(domain)) return true;
   return false;
 }
+
 function isPreventedNavOrRedirect(url: URL): boolean {
   return (
     url.hostname !== "consent.youtube.com" &&
@@ -971,6 +995,7 @@ const createYTMView = (): void => {
       autoplayPolicy: store.get("playback.continueWhereYouLeftOffPaused") ? "document-user-activation-required" : "no-user-gesture-required"
     }
   });
+
   companionServer.provide(store, memoryStore, ytmView);
   customCss.provide(store, ytmView);
   ratioVolume.provide(ytmView);
@@ -1161,6 +1186,7 @@ const createMainWindow = (): void => {
       devTools: store.get("developer.enableDevTools")
     }
   });
+
   const windowMaximized = store.get("state").windowMaximized;
   // Even though bounds are set when creating the main window we set the bounds again to fix scaling issues. This is classified as an upstream chromium bug.
   if (windowBounds) {
@@ -1924,3 +1950,51 @@ app.on("activate", () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+
+/**
+ * Platform / hardware-specific Electron optimizations.
+ */
+
+/** Whenever the current process is ran on *nix. */
+/**
+ * An experimental function that might return the flags, which seem to improve
+ * a graphics rendering performance. Some flags might enable the features not
+ * fully tested to work with every GPU card.
+ *
+ * Unlike its name, Chromium developers seem to have the reason not to
+ * enable this by the default – it is advised to test whenever this app performs
+ * better or worse with these settings applied.
+ */
+function getRecommendedGPUFlags() {
+  const switches: ([string] | [string, string])[] = [];
+  // Use EGL on Wayland and ARM devices.
+  if (isWaylandNative) {
+    switches.push(["gl", "egl-angle"]);
+  }
+  if (isUnix) {
+    switches.push(
+      // Enforce VA-API:
+      ["enable-features", "VaapiVideoDecoder,VaapiVideoEncoder,VaapiIgnoreDriverChecks"],
+      ["disable-features", "UseChromeOSDirectVideoDecoder"],
+      // Bypass GPU blocklist:
+      ["ignore-gpu-blocklist"],
+      ["enable-zero-copy"]
+    );
+  }
+  return switches;
+}
+
+/**
+ * A function to return information about recommended flags to improve
+ * the app's integration within the OS.
+ */
+function getRecommendedOSFlags() {
+  const switches: ([string] | [string, string])[] = [];
+  // Recommended switches when running on Wayland Native
+  if (isWaylandNative) switches.push(["enable-features", "UseOzonePlatform,WebRTCPipeWireCapturer,WaylandWindowDecorations"]);
+
+  if (isWaylandNative) switches.push(["ozone-platform-hint", "wayland"]);
+  // Recommended switches for XWayland
+  else switches.push(["enable-features", "WebRTCPipeWireCapturer"]);
+  return switches;
+}

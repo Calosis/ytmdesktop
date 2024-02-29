@@ -1,7 +1,6 @@
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
-import { MakerDeb } from "@electron-forge/maker-deb";
 import { MakerRpm } from "@electron-forge/maker-rpm";
 import { WebpackPlugin } from "@electron-forge/plugin-webpack";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
@@ -54,14 +53,6 @@ const config: ForgeConfig = {
       options: {
         categories: ["AudioVideo", "Audio"],
         mimeType: ["x-scheme-handler/ytmd"],
-        icon: "./src/assets/icons/ytmd.png"
-      }
-    }),
-    new MakerDeb({
-      options: {
-        categories: ["AudioVideo", "Audio"],
-        mimeType: ["x-scheme-handler/ytmd"],
-        section: "sound",
         icon: "./src/assets/icons/ytmd.png"
       }
     })
